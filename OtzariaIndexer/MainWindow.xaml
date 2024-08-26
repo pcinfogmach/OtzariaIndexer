@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:OtzariaIndexer"
         mc:Ignorable="d"
-                Title="Full-Text Search" Height="450" Width="800">
+        FlowDirection="RightToLeft"
+        Title="OtzariaIndexer" Height="450" Width="800">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="auto"/>
@@ -28,6 +29,8 @@
             </StackPanel>
 
         </Grid>
+        
+        
 
         <ListBox x:Name="ResultsListBox"
                      Grid.Row="1"

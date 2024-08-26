@@ -1,6 +1,7 @@
 ﻿using Microsoft.WindowsAPICodePack.Dialogs;
 using System;
 using System.IO;
+using System.Text;
 using System.Windows;
 
 namespace OtzariaIndexer
@@ -14,6 +15,7 @@ namespace OtzariaIndexer
         public MainWindow()
         {
             InitializeComponent();
+            Console.OutputEncoding = Encoding.GetEncoding("Windows-1255");
         }
 
         private void SearchButton_Click(object sender, RoutedEventArgs e)
