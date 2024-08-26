@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows;
 
 namespace OtzariaIndexer
@@ -31,7 +32,10 @@ namespace OtzariaIndexer
             CommonOpenFileDialog dialog = new CommonOpenFileDialog { IsFolderPicker = true };
             if (dialog.ShowDialog() != CommonFileDialogResult.Ok) return;
             string[] selectedFiles = Directory.GetFiles(dialog.FileName, "*.*", SearchOption.AllDirectories);
-            searchApp.IndexDocuments(selectedFiles);
+            Task.Run(() =>
+            {
+                searchApp.IndexDocuments(selectedFiles);
+            });
             Console.WriteLine("Files indexed successfully!");
         }
     }
