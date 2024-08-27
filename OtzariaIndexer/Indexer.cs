@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -8,6 +9,7 @@ using System.Text.Json;
 namespace OtzariaIndexer
 {
     public class TermToIndexMap : Dictionary<string, int> { }
+    public class InvertedIndex : Dictionary<int, string> { }
 
     public class IndexerBase : IDisposable
     {
@@ -15,6 +17,7 @@ namespace OtzariaIndexer
         public string termsFilePath;
         protected SQLiteConnection sqliteConnection;
         protected TermToIndexMap termToIndexMap = new TermToIndexMap();
+        protected InvertedIndex invertedIndex = new InvertedIndex();
 
         public void Dispose()
         {
@@ -94,6 +97,9 @@ namespace OtzariaIndexer
                     {
                         IndexDocument(filePath);
                         transaction.Commit();
+                        if (MemoryExceedsLimit())
+                            Console.WriteLine("Flushing Index From Memory....");
+                            SaveInvertedIndex();
                     }
                     catch (Exception ex)
                     {
@@ -105,6 +111,7 @@ namespace OtzariaIndexer
             }
 
             SaveTermsToJson();  // Save the updated term dictionary to JSON
+            SaveInvertedIndex();
         }
 
         void IndexDocument(string documentFilePath)
@@ -113,12 +120,14 @@ namespace OtzariaIndexer
 
             int documentId = GetOrCreateDocumentId(documentFilePath);
 
+
             string text = File.ReadAllText(documentFilePath);
-            StoreDocumentText(documentId, text);
+            //StoreDocumentText(documentId, text);
 
             var tokens = Tokenizer.Tokenize(text, documentId);
 
-            IndexTokens(tokens);
+            StoreTokensInMemory(tokens);
+            //IndexTokens(tokens);
         }
 
         public int GetOrCreateDocumentId(string documentPath)
@@ -169,6 +178,65 @@ namespace OtzariaIndexer
                 cmd.Parameters.AddWithValue("@documentText", documentText);
                 cmd.ExecuteNonQuery();
             }
+        }
+
+        public void StoreTokensInMemory(List<Token> tokens)
+        {
+            foreach (var token in tokens)
+            {
+                string newData = JsonSerializer.Serialize(token);
+
+                if (!termToIndexMap.TryGetValue(token.Text, out int termId))
+                {
+                    termId = termToIndexMap.Count;
+                    termToIndexMap[token.Text] = termId;
+                }
+
+                if (!invertedIndex.ContainsKey(termId)) invertedIndex.Add(termId, newData);
+                  else  invertedIndex[termId] += "|" + newData;
+            }
+        }
+
+        bool MemoryExceedsLimit()
+        {
+            const long oneGB = 1L * 1024 * 1024 * 1024;
+
+            // Get the current memory usage of the application
+            Process currentProcess = Process.GetCurrentProcess();
+            long memoryUsed = currentProcess.WorkingSet64;
+
+            return memoryUsed > oneGB;
+        }
+
+        public void SaveInvertedIndex()
+        {
+            foreach (var entry in invertedIndex)
+            {
+                using (var transaction = sqliteConnection.BeginTransaction())
+                {
+                    using (var updateCmd = sqliteConnection.CreateCommand())
+                    {
+                        updateCmd.CommandText = @"
+        UPDATE InvertedIndex
+        SET DocumentData = 
+            COALESCE((SELECT DocumentData || '|' || @newData FROM InvertedIndex WHERE TermId = @termId), @newData)
+        WHERE TermId = @termId;
+
+        INSERT INTO InvertedIndex (TermId, DocumentData)
+        SELECT @termId, @newData
+        WHERE NOT EXISTS (SELECT 1 FROM InvertedIndex WHERE TermId = @termId);
+    ";
+
+                        updateCmd.Parameters.AddWithValue("@termId", entry.Key);
+                        updateCmd.Parameters.AddWithValue("@newData", entry.Value);
+
+                        updateCmd.ExecuteNonQuery();
+                        updateCmd.Parameters.Clear();
+                    }
+                    transaction.Commit();
+                }
+            }
+            invertedIndex.Clear();
         }
 
         public void IndexTokens(List<Token> tokens)
@@ -244,7 +312,8 @@ namespace OtzariaIndexer
                 if (validResults.Count == 0) continue;
 
                 string documentPath = GetDocumentPathById(documentId);
-                string documentText = RetrieveDocumentText(documentId);
+                //string documentText = RetrieveDocumentText(documentId);
+                string documentText = File.ReadAllText(documentPath);
                 for (int i = 0; i < validResults.Count; i++)
                 {
                     results.Add(new KeyValuePair<string,string>( documentPath, SnippetGenerator.CreateSnippet(documentText, validResults[i])));
