@@ -118,6 +118,8 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="IndexSearcher.cs" />
+    <Compile Include="SizeLimitedStringBuilder.cs" />
     <Compile Include="ConsoleProgressBar.cs" />
     <Compile Include="Tokenizer_2.cs" />
     <Compile Include="ZipManger.cs" />
