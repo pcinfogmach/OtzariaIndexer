@@ -5,6 +5,10 @@ VisualStudioVersion = 17.11.35208.52
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OtzariaIndexer", "OtzariaIndexer\OtzariaIndexer.csproj", "{412A0120-160B-4CE2-88BE-89EB9AC28AA3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OtzriaIndexerTextFilesOnly", "OtzriaIndexerTextFilesOnly\OtzriaIndexerTextFilesOnly.csproj", "{94795635-0F35-4788-9D87-B2795DD9B3AB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZipTest", "ZipTest\ZipTest.csproj", "{0E8864B0-6AE7-4FDB-9CC6-38DDF5C11FC1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +19,14 @@ Global
 		{412A0120-160B-4CE2-88BE-89EB9AC28AA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{412A0120-160B-4CE2-88BE-89EB9AC28AA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{412A0120-160B-4CE2-88BE-89EB9AC28AA3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94795635-0F35-4788-9D87-B2795DD9B3AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94795635-0F35-4788-9D87-B2795DD9B3AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94795635-0F35-4788-9D87-B2795DD9B3AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94795635-0F35-4788-9D87-B2795DD9B3AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0E8864B0-6AE7-4FDB-9CC6-38DDF5C11FC1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E8864B0-6AE7-4FDB-9CC6-38DDF5C11FC1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E8864B0-6AE7-4FDB-9CC6-38DDF5C11FC1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E8864B0-6AE7-4FDB-9CC6-38DDF5C11FC1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

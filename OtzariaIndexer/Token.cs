@@ -8,6 +8,7 @@ namespace OtzariaIndexer
 {
     public class Token
     {
+        public string DocumentPath { get; set; }
         public int DocumentId { get; set; }
         public string Text { get; set; }
         public int Position { get; set; }
