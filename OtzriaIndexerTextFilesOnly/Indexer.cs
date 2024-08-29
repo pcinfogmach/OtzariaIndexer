@@ -16,7 +16,7 @@ namespace OtzriaIndexerTextFilesOnly
 {
     public class TermToIndexEntry
     {
-        public int Id { get; set; } 
+        public int Id { get; set; }
 
         [JsonIgnore]
         public SizeLimitedStringBuilder stringBuilder;
@@ -30,7 +30,7 @@ namespace OtzriaIndexerTextFilesOnly
 
     public class ConcurrenTermToIndexMap : ConcurrentDictionary<string, TermToIndexEntry> { }
     //public class ConcurrenTermInvertedIndex : ConcurrentDictionary<int, string> { }
-    public class IndexerBase 
+    public class IndexerBase
     {
         public string invertedIndexPath;
         public string termsFilePath;
@@ -68,32 +68,48 @@ namespace OtzriaIndexerTextFilesOnly
 
     public class Indexer : IndexerBase
     {
+        bool isFlushingInProgress = false;
+        bool isMemoryExceedsLimits = false;
         public void IndexDocuments(string[] documentFilePaths)
         {
-            for (int i = 0; i < documentFilePaths.Count(); i++)
+            try
             {
-                if (MemoryExceedsLimit())
-                    FlushIndex();
-
-                string filePath = documentFilePaths[i];
-                Console.WriteLine(filePath);
-                Console.WriteLine(i + "\\" + documentFilePaths.Count());
-
-                try
-                { 
-                    IndexDocument(filePath);
-                }
-                catch (Exception ex)
+                using (var memoryCleanerTimer = new Timer(state =>
                 {
-                    Console.WriteLine(ex.Message);
+                    isMemoryExceedsLimits = MemoryManager.MemoryExceedsLimit();
+                    if (isMemoryExceedsLimits)
+                        FlushIndex();
+                    //Console.WriteLine("Memory cleaned!");
+                }, null, TimeSpan.Zero, TimeSpan.FromSeconds(3))) // Run every 5 seconds
+                {
+                    for (int i = 0; i < documentFilePaths.Count(); i++)
+                    {
+                        while (isMemoryExceedsLimits) Task.Delay(100).Wait();
+                        string filePath = documentFilePaths[i];
+                        Console.WriteLine(filePath);
+                        Console.WriteLine(i + "\\" + documentFilePaths.Count());
+
+                        try
+                        {
+                            IndexDocument(filePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                        }
+
+                    }
+
+                    SaveTermsToJson();
+                    FlushIndex();
+                    Console.WriteLine("Indexing Complete!");
                 }
 
             }
-
-            SaveTermsToJson();
-
-            FlushIndex();
-            Console.WriteLine("Indexing Complete!");
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
         }
 
         void IndexDocument(string filePath)
@@ -106,23 +122,25 @@ namespace OtzriaIndexerTextFilesOnly
             Console.WriteLine($"Tokenizing...");
             var tokens = Tokenizer_2.Tokenize(text, filePath);
 
-            Console.WriteLine($"Storing Tokens...");
+
             //StoreTokensInMemory(tokens);
             StoreTokens(tokens);
         }
 
         public void StoreTokens(List<Token> tokens)
         {
+            Console.WriteLine($"Sorting Tokens...");
             var tokenGroups = tokens.GroupBy(t => t.Text);
             int termCount = termToIndexMap.Count;
 
+            Console.WriteLine($"Storing Tokens...");
             using (var progress = new ConsoleProgressBar())
             {
                 int progressCount = 1;
                 int maxProgress = tokenGroups.Count();
                 Parallel.ForEach(tokenGroups, group =>
-                //foreach (var group in tokenGroups)
                 {
+                    while (isMemoryExceedsLimits) Task.Delay(100).Wait();
                     progress.Report((double)progressCount++ / maxProgress);
                     termToIndexMap.TryAdd(group.Key, new TermToIndexEntry(++termCount));
                     if (group.Count() > 1)
@@ -137,57 +155,51 @@ namespace OtzriaIndexerTextFilesOnly
                         termToIndexMap[group.Key].stringBuilder.Append(JsonSerializer.Serialize(group.First()) + "|");
                     }
                 });
-            }               
+            }
         }
 
-        bool MemoryExceedsLimit()
-        {
-            const long oneGB = 1L * 1024 * 1024 * 1024;
-
-            // Get the current memory usage of the application
-            Process currentProcess = Process.GetCurrentProcess();
-            long memoryUsed = currentProcess.WorkingSet64;
-
-            return memoryUsed > oneGB;
-        }
-
-
-        [DllImport("kernel32.dll")]
-        static extern bool SetProcessWorkingSetSize(IntPtr proc, int min, int max);
         public void FlushIndex()
         {
-            Timer memoryCleanerTimer = null;
-            memoryCleanerTimer = new Timer(state =>
+            if (isFlushingInProgress) return;
+            isFlushingInProgress = true;
+
+            using (var memoryCleanerTimer = new Timer(state =>
             {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-
-                SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
-
-                //Console.WriteLine("Alert: Memory cleaned!");
-            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5)); // Run every 5 seconds
-
-
-            Console.WriteLine("Flushing Inverted Index...");
-            using (var progress = new ConsoleProgressBar())
+                MemoryManager.CleanAsync();
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(10)))
             {
-                int progressCount = 1;
-                int maxProgress = termToIndexMap.Count();
-                Parallel.ForEach(termToIndexMap, entry =>
-                //foreach (var entry in termToIndexMap)
-                {
-                    entry.Value.stringBuilder.Flush();
-                    progress.Report((double)progressCount++ / maxProgress);
-                });
+                Console.WriteLine("Flushing Inverted Index...");
+                //int maxProgress = termToIndexMap.Count() + 3;
+                //int progressCount = 1;
 
-                SaveTermsToJson();
-                termToIndexMap = new ConcurrenTermToIndexMap();
-                LoadTermsFromJson();
+                var termsToFlush = termToIndexMap.Where(t =>
+                        t.Value.stringBuilder.StringBuilder != null &&
+                        t.Value.stringBuilder.StringBuilder.Length > 0)
+                        .ToHashSet();
+
+                //using (var progress = new ConsoleContinuousProgressBar())
+                //{
+                    Parallel.ForEach(termsToFlush, (entry, ct) =>
+                    {
+                        entry.Value.stringBuilder.Flush();
+                        //Console.Write(".");
+                        //progress.Report((double)progressCount++ / maxProgress);
+                    });
+
+                    SaveTermsToJson();
+                    //progress.Report((double)progressCount++ / maxProgress);
+                    //termToIndexMap = new ConcurrenTermToIndexMap();
+                    //progress.Report((double)progressCount++ / maxProgress);
+                    //LoadTermsFromJson();
+                    //progress.Report((double)progressCount++ / maxProgress);
+                //}
             }
+            MemoryManager.Clean();
 
-            memoryCleanerTimer.Dispose();
+            Console.WriteLine("Flushing Complete!");
+            isFlushingInProgress = false;
         }
+
     }
 }
 

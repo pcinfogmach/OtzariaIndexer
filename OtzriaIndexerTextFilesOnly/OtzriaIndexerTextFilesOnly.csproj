@@ -119,6 +119,7 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="IndexSearcher.cs" />
+    <Compile Include="MemoryCleaner.cs" />
     <Compile Include="ProximityChecker.cs" />
     <Compile Include="SizeLimitedStringBuilder.cs" />
     <Compile Include="ConsoleProgressBar.cs" />

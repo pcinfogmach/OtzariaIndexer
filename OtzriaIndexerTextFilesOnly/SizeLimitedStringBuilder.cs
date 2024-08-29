@@ -8,8 +8,9 @@ namespace OtzriaIndexerTextFilesOnly
 {
     public class SizeLimitedStringBuilder
     {
-        private readonly StringBuilder _stringBuilder;
-        private readonly int _maxSizeInBytes = 1048576 * 2;
+        public StringBuilder StringBuilder;
+        bool stringBuilderBusy = false;
+        private readonly int _maxSizeInBytes = 1048576 * 10;
         private readonly string _filePath;
         private int _currentSizeInBytes;
         int Id;
@@ -17,22 +18,26 @@ namespace OtzriaIndexerTextFilesOnly
         public SizeLimitedStringBuilder(int id)
         {
             Id = id;
-            _stringBuilder = new StringBuilder();
             _currentSizeInBytes = 0;
             _filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Index", "InvertedIndex", id + ".zip");
         }
 
         public void Append(string text)
         {
+            while (stringBuilderBusy) Task.Delay(100).Wait();
+            stringBuilderBusy = true;
+
+            if (StringBuilder == null) StringBuilder = new StringBuilder();
             // Calculate the byte size of the new text and add it to the current size
-            int textSizeInBytes = Encoding.UTF8.GetByteCount(text);
-            _currentSizeInBytes += textSizeInBytes;
+            //int textSizeInBytes = Encoding.UTF8.GetByteCount(text);
+            //_currentSizeInBytes += textSizeInBytes;
 
             // Append the text to the StringBuilder
-            _stringBuilder.Append(text);
+            StringBuilder.Append(text);
 
             // Check if the accumulated size exceeds the maximum size
-            CheckSizeAndFlush();
+            //CheckSizeAndFlush();
+            stringBuilderBusy = false;
         }
 
         private void CheckSizeAndFlush()
@@ -40,13 +45,23 @@ namespace OtzriaIndexerTextFilesOnly
             if (_currentSizeInBytes >= _maxSizeInBytes)
             {
                 Flush();
+                if (MemoryManager.MemoryExceedsLimit()) { MemoryManager.CleanAsync(); }
             }
         }
 
         public void Flush()
         {
-            if (_stringBuilder.Length == 0) 
+            if (StringBuilder == null || StringBuilder.Length == 0)
                 return;
+
+            while (stringBuilderBusy) Task.Delay(100).Wait();
+            stringBuilderBusy = true;
+
+            string text = StringBuilder.ToString();
+            StringBuilder.Clear();
+            StringBuilder = null;
+            _currentSizeInBytes = 0;
+
             try
             {
                 using (ZipArchive zipArchive = ZipFile.Open(_filePath, ZipArchiveMode.Update))
@@ -60,21 +75,24 @@ namespace OtzriaIndexerTextFilesOnly
 
                         using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, bufferSize: 1024, leaveOpen: true))
                         {
-                            writer.Write(_stringBuilder.ToString());
+                            writer.Write(text);
                             writer.Flush();
                         }
                     }
                 }
-
-                // Clear the StringBuilder after flushing and reset the current size
-                _stringBuilder.Clear();
-                _currentSizeInBytes = 0;
+            }
+            catch (OutOfMemoryException)
+            {
+                Task.Delay(1000);
+                Flush();
             }
             catch (IOException ex) when (ex.Message.Contains("because it is being used by another process"))
             {
                 Task.Delay(1000);
                 Flush();
             }
+
+            stringBuilderBusy = false;
         }
     }
 }
