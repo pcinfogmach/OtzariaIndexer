@@ -1,107 +1,61 @@
-﻿using ICSharpCode.SharpZipLib.Zip;
+﻿using ICSharpCode.SharpZipLib.Tar;
 using System;
 using System.IO;
 using System.Text;
+using System.Windows.Forms;
 
-namespace ZipTest
+class Program
 {
-    class Program
+    [STAThread]
+    static void Main()
     {
-        static void Main()
+        // Prompt the user to choose the folder containing ZIP files
+        string zipDirectory = ChooseFolder();
+        if (string.IsNullOrEmpty(zipDirectory))
         {
-            string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            string zipPath = Path.Combine(desktopPath, "example-sharpziplib.zip");
-
-            // Create a ZIP file with some files
-            using (FileStream fsOut = File.Create(zipPath))
-            using (ZipOutputStream zipStream = new ZipOutputStream(fsOut))
-            {
-                zipStream.SetLevel(9); // Compression level 0-9 (0 = store only, 9 = best compression)
-
-                AddFileToZip(zipStream, "file1.txt", "This is the content of file1.");
-                AddFileToZip(zipStream, "file2.txt", "This is the content of file2.");
-                AddFileToZip(zipStream, "file3.txt", "This is the content of file3.");
-            }
-
-            Console.WriteLine("ZIP file created on the desktop using SharpZipLib.");
-
-            // Append a line to file1.txt within the ZIP archive
-            AppendLineToFileInZip(zipPath, "file1.txt", "This is an appended line.");
-            Console.WriteLine("Line appended to file1.txt in the ZIP archive.");
+            Console.WriteLine("No folder selected. Exiting...");
+            return;
         }
 
-        static void AddFileToZip(ZipOutputStream zipStream, string fileName, string content)
+        string tarFileName = Path.Combine(zipDirectory, "Archive.tar");
+
+        using (FileStream tarFileStream = new FileStream(tarFileName, FileMode.Create, FileAccess.Write, FileShare.None, 8192, FileOptions.SequentialScan))
+        using (TarOutputStream tarOutputStream = new TarOutputStream(tarFileStream, Encoding.UTF8))
         {
-            ZipEntry newEntry = new ZipEntry(fileName);
-            zipStream.PutNextEntry(newEntry);
+            tarOutputStream.IsStreamOwner = false; // Prevent closing the underlying stream
 
-            byte[] contentBytes = Encoding.UTF8.GetBytes(content);
-            zipStream.Write(contentBytes, 0, contentBytes.Length);
-
-            zipStream.CloseEntry();
-        }
-
-        static void AppendLineToFileInZip(string zipPath, string fileName, string lineToAppend)
-        {
-            // Temporary directory to extract the files
-            string tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-            Directory.CreateDirectory(tempDir);
-
-            try
+            foreach (string zipFilePath in Directory.GetFiles(zipDirectory, "*.zip"))
             {
-                // Extract all files from the ZIP archive
-                using (ZipFile zipFile = new ZipFile(zipPath))
+                TarEntry tarEntry = TarEntry.CreateEntryFromFile(zipFilePath);
+                tarOutputStream.PutNextEntry(tarEntry);
+
+                // Efficiently stream the file into the TAR archive
+                using (FileStream zipFileStream = File.OpenRead(zipFilePath))
                 {
-                    foreach (ZipEntry entry in zipFile)
-                    {
-                        string entryFileName = Path.Combine(tempDir, entry.Name);
-                        string entryDirectory = Path.GetDirectoryName(entryFileName);
-
-                        if (!Directory.Exists(entryDirectory))
-                        {
-                            Directory.CreateDirectory(entryDirectory);
-                        }
-
-                        using (Stream zipStream = zipFile.GetInputStream(entry))
-                        using (FileStream fileStream = File.Create(entryFileName))
-                        {
-                            zipStream.CopyTo(fileStream);
-                        }
-                    }
+                    zipFileStream.CopyTo(tarOutputStream, 8192); // Use a buffer to reduce I/O operations
                 }
 
-                // Modify the specified file
-                string filePathToModify = Path.Combine(tempDir, fileName);
-                if (File.Exists(filePathToModify))
-                {
-                    File.AppendAllText(filePathToModify, Environment.NewLine + lineToAppend);
-                }
-                else
-                {
-                    throw new FileNotFoundException("The file to be modified was not found in the extracted files.");
-                }
-
-                // Create a new ZIP file with the modified files
-                string tempZipPath = Path.Combine(tempDir, "temp.zip");
-                using (FileStream fsOut = File.Create(tempZipPath))
-                using (ZipOutputStream zipStream = new ZipOutputStream(fsOut))
-                {
-                    foreach (string file in Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories))
-                    {
-                        string entryName = file.Substring(tempDir.Length + 1).Replace('\\', '/');
-                        AddFileToZip(zipStream, entryName, File.ReadAllText(file));
-                    }
-                }
-
-                // Replace the original ZIP file with the new one
-                File.Delete(zipPath);
-                File.Move(tempZipPath, zipPath);
-            }
-            finally
-            {
-                // Clean up temporary files
-                Directory.Delete(tempDir, true);
+                tarOutputStream.CloseEntry();
             }
         }
+
+        Console.WriteLine($"ZIP files from {zipDirectory} have been archived into {tarFileName}");
+    }
+
+    // Method to prompt the user to choose a folder
+    static string ChooseFolder()
+    {
+        using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
+        {
+            folderDialog.Description = "Select the folder containing the ZIP files to archive";
+            folderDialog.ShowNewFolderButton = false;
+
+            DialogResult result = folderDialog.ShowDialog();
+            if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(folderDialog.SelectedPath))
+            {
+                return folderDialog.SelectedPath;
+            }
+        }
+        return null;
     }
 }

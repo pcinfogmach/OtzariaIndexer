@@ -9,7 +9,7 @@ namespace OtzriaIndexerTextFilesOnly
     public class SizeLimitedStringBuilder
     {
         private readonly StringBuilder _stringBuilder;
-        private readonly int _maxSizeInBytes = 1048576 * 50;
+        private readonly int _maxSizeInBytes = 1048576 * 2;
         private readonly string _filePath;
         private int _currentSizeInBytes;
         int Id;
@@ -45,7 +45,8 @@ namespace OtzriaIndexerTextFilesOnly
 
         public void Flush()
         {
-            if (_stringBuilder.Length < 0) return;
+            if (_stringBuilder.Length == 0) 
+                return;
             try
             {
                 using (ZipArchive zipArchive = ZipFile.Open(_filePath, ZipArchiveMode.Update))
@@ -64,6 +65,7 @@ namespace OtzriaIndexerTextFilesOnly
                         }
                     }
                 }
+
                 // Clear the StringBuilder after flushing and reset the current size
                 _stringBuilder.Clear();
                 _currentSizeInBytes = 0;

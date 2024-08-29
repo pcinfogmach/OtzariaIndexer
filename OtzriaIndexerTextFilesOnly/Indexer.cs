@@ -12,21 +12,21 @@ using OtzariaIndexer;
 
 namespace OtzriaIndexerTextFilesOnly
 {
-    public class TermIndexEntry
+    public class TermToIndexEntry
     {
         public int Id { get; set; } 
 
         [JsonIgnore]
         public SizeLimitedStringBuilder stringBuilder;
 
-        public TermIndexEntry(int id)
+        public TermToIndexEntry(int id)
         {
             Id = id;
             stringBuilder = new SizeLimitedStringBuilder(id);
         }
     }
 
-    public class ConcurrenTermToIndexMap : ConcurrentDictionary<string, TermIndexEntry> { }
+    public class ConcurrenTermToIndexMap : ConcurrentDictionary<string, TermToIndexEntry> { }
     //public class ConcurrenTermInvertedIndex : ConcurrentDictionary<int, string> { }
     public class IndexerBase 
     {
@@ -70,14 +70,15 @@ namespace OtzriaIndexerTextFilesOnly
         {
             for (int i = 0; i < documentFilePaths.Count(); i++)
             {
+                if (MemoryExceedsLimit())
+                    FlushIndex();
+
                 string filePath = documentFilePaths[i];
                 Console.WriteLine(filePath);
                 Console.WriteLine(i + "\\" + documentFilePaths.Count());
 
                 try
-                {
-                    if (MemoryExceedsLimit()) 
-                        FlushIndex();
+                { 
                     IndexDocument(filePath);
                 }
                 catch (Exception ex)
@@ -121,7 +122,7 @@ namespace OtzriaIndexerTextFilesOnly
                 //foreach (var group in tokenGroups)
                 {
                     progress.Report((double)progressCount++ / maxProgress);
-                    termToIndexMap.TryAdd(group.Key, new TermIndexEntry(++termCount));
+                    termToIndexMap.TryAdd(group.Key, new TermToIndexEntry(++termCount));
                     if (group.Count() > 1)
                     {
                         foreach (var token in group)
