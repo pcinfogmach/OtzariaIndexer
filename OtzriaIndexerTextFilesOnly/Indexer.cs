@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
+using System.IO;    
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -29,9 +26,10 @@ namespace OtzriaIndexerTextFilesOnly
     }
 
     public class ConcurrenTermToIndexMap : ConcurrentDictionary<string, TermToIndexEntry> { }
-    //public class ConcurrenTermInvertedIndex : ConcurrentDictionary<int, string> { }
+    public class ConcurrenFileIds : ConcurrentDictionary<int, string> { }
     public class IndexerBase
     {
+        
         public string invertedIndexPath;
         public string termsFilePath;
         protected ConcurrenTermToIndexMap termToIndexMap = new ConcurrenTermToIndexMap();
@@ -80,7 +78,7 @@ namespace OtzriaIndexerTextFilesOnly
                     if (isMemoryExceedsLimits)
                         FlushIndex();
                     //Console.WriteLine("Memory cleaned!");
-                }, null, TimeSpan.Zero, TimeSpan.FromSeconds(3))) // Run every 5 seconds
+                }, null, TimeSpan.Zero, TimeSpan.FromSeconds(2))) // Run every 5 seconds
                 {
                     for (int i = 0; i < documentFilePaths.Count(); i++)
                     {
@@ -166,9 +164,9 @@ namespace OtzriaIndexerTextFilesOnly
             using (var memoryCleanerTimer = new Timer(state =>
             {
                 MemoryManager.CleanAsync();
-            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(10)))
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5)))
             {
-                Console.WriteLine("Flushing Inverted Index...");
+                Console.WriteLine("Flushing inverted index, indexing will be slow while flushing...");
                 //int maxProgress = termToIndexMap.Count() + 3;
                 //int progressCount = 1;
 
@@ -194,7 +192,7 @@ namespace OtzriaIndexerTextFilesOnly
                     //progress.Report((double)progressCount++ / maxProgress);
                 //}
             }
-            MemoryManager.Clean();
+            MemoryManager.CleanAsync();
 
             Console.WriteLine("Flushing Complete!");
             isFlushingInProgress = false;
