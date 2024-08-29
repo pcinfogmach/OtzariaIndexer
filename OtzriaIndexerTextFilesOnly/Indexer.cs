@@ -4,9 +4,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using OtzariaIndexer;
 
@@ -149,8 +151,24 @@ namespace OtzriaIndexerTextFilesOnly
             return memoryUsed > oneGB;
         }
 
+
+        [DllImport("kernel32.dll")]
+        static extern bool SetProcessWorkingSetSize(IntPtr proc, int min, int max);
         public void FlushIndex()
         {
+            Timer memoryCleanerTimer = null;
+            memoryCleanerTimer = new Timer(state =>
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+
+                SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
+
+                //Console.WriteLine("Alert: Memory cleaned!");
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5)); // Run every 5 seconds
+
+
             Console.WriteLine("Flushing Inverted Index...");
             using (var progress = new ConsoleProgressBar())
             {
@@ -166,7 +184,9 @@ namespace OtzriaIndexerTextFilesOnly
                 SaveTermsToJson();
                 termToIndexMap = new ConcurrenTermToIndexMap();
                 LoadTermsFromJson();
-            }   
+            }
+
+            memoryCleanerTimer.Dispose();
         }
     }
 }

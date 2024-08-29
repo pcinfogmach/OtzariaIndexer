@@ -16,33 +16,13 @@ namespace OtzriaIndexerTextFilesOnly
     /// </summary>
     public partial class MainWindow : Window
     {
-        [DllImport("kernel32.dll")]
-        static extern bool SetProcessWorkingSetSize(IntPtr proc, int min, int max);
+
 
         private IndexSearcher searchApp = new IndexSearcher();
         public MainWindow()
         {
             InitializeComponent();
             Console.OutputEncoding = Encoding.GetEncoding("Windows-1255");
-
-            Timer timer = new Timer(5000);
-            timer.Elapsed += (sender, e) => CleanMemory();
-            timer.Start();
-        }
-
-        static void CleanMemory()
-        {
-            Task.Run(() =>
-            {
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-
-                // שחרור זיכרון באמצעות קריאת API
-                SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, -1, -1);
-
-                Console.WriteLine("Alert: Memory cleaned!");
-            });
         }
 
 
