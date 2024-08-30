@@ -70,8 +70,8 @@ namespace OtzriaIndexerTextFilesOnly
         bool isMemoryExceedsLimits = false;
         public void IndexDocuments(string[] documentFilePaths)
         {
-            try
-            {
+            //try
+            //{
                 using (var memoryCleanerTimer = new Timer(state =>
                 {
                     isMemoryExceedsLimits = MemoryManager.MemoryExceedsLimit();
@@ -103,11 +103,11 @@ namespace OtzriaIndexerTextFilesOnly
                     Console.WriteLine("Indexing Complete!");
                 }
 
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
+            //}
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine(ex.Message);
+            //}
         }
 
         void IndexDocument(string filePath)
@@ -136,7 +136,8 @@ namespace OtzriaIndexerTextFilesOnly
             {
                 int progressCount = 1;
                 int maxProgress = tokenGroups.Count();
-                Parallel.ForEach(tokenGroups, group =>
+                ParallelOptions maxDegreeOfParallelism = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
+                Parallel.ForEach(tokenGroups, maxDegreeOfParallelism, group =>
                 {
                     while (isMemoryExceedsLimits) Task.Delay(100).Wait();
                     progress.Report((double)progressCount++ / maxProgress);
@@ -177,7 +178,8 @@ namespace OtzriaIndexerTextFilesOnly
 
                 //using (var progress = new ConsoleContinuousProgressBar())
                 //{
-                    Parallel.ForEach(termsToFlush, (entry, ct) =>
+                ParallelOptions maxDegreeOfParallelism = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
+                Parallel.ForEach(termsToFlush, maxDegreeOfParallelism, (entry, ct) =>
                     {
                         entry.Value.stringBuilder.Flush();
                         //Console.Write(".");
