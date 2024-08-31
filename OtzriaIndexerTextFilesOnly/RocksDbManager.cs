@@ -10,6 +10,7 @@ public class RocksDbManager : IDisposable
 
     public RocksDbManager(string dbPath)
     {
+        if (!Directory.Exists(dbPath)) Directory.CreateDirectory(dbPath);
         _db = RocksDb.Open(new DbOptions().SetCreateIfMissing(true), dbPath);
     }
 

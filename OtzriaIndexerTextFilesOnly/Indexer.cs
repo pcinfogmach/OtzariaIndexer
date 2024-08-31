@@ -73,12 +73,12 @@ namespace OtzriaIndexerTextFilesOnly
         {
             int documentCount = documentFilePaths.Count();
             using (var manager = new RocksDbManager(invertedIndexPath))
-            using (var memoryCleanerTimer = new Timer(state =>
-            {
-                isMemoryExceedsLimits = MemoryManager.MemoryExceedsLimit();
-                if (isMemoryExceedsLimits)
-                    FlushIndex();
-            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(3)))
+            //using (var memoryCleanerTimer = new Timer(state =>
+            //{
+            //    isMemoryExceedsLimits = MemoryManager.MemoryExceedsLimit();
+            //    if (isMemoryExceedsLimits)
+            //        FlushIndex();
+            //}, null, TimeSpan.Zero, TimeSpan.FromSeconds(3)))
             {
                 
                 for (int i = 0; i < documentFilePaths.Count(); i++)
@@ -100,7 +100,7 @@ namespace OtzriaIndexerTextFilesOnly
             }
 
             SaveTermsToJson();
-            FlushIndex();
+            //FlushIndex();
             Console.WriteLine("Indexing Complete!");
         }
 
