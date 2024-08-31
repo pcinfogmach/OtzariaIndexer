@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows.Shapes;
 
 namespace OtzriaIndexerTextFilesOnly
 {
@@ -56,6 +57,7 @@ namespace OtzriaIndexerTextFilesOnly
         List<Token> GetSerializedResults(int termId)
         {
             string termData = ReadTermData(termId);
+
             var termEntries = termData.Split(new char[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
 
             List<Token> serailizedEntries = new List<Token>();
@@ -69,22 +71,39 @@ namespace OtzriaIndexerTextFilesOnly
 
         string ReadTermData(int termId)
         {
-            using (ZipArchive zipArchive = ZipFile.Open(Path.Combine(invertedIndexPath, $"{termId}.zip"), ZipArchiveMode.Update))
+            using (var manager = new RocksDbManager(invertedIndexPath))
             {
-                var entry = zipArchive.GetEntry($"{termId}.txt");
-                if (entry == null) return string.Empty;
-                using (StreamReader reader = new StreamReader(entry.Open()))
-                {
-                    return reader.ReadToEnd();
-                }
+               return manager.GetEntry(termId);
             }
 
-            //string entryPath = Path.Combine(invertedIndexPath, termId.ToString() + ".txt");
-            //if (File.Exists(entryPath))
-            //{
-            //    return File.ReadAllText(entryPath);
-            //}
-            //return string.Empty;
-        }
+                //string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Index", "InvertedIndex", termId.ToString());
+                //using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                //{
+                //    using (DeflateStream deflateStream = new DeflateStream(fileStream, CompressionMode.Decompress))
+                //    {
+                //        using (StreamReader reader = new StreamReader(deflateStream, Encoding.UTF8))
+                //        {
+                //            return reader.ReadToEnd();
+                //        }
+                //    }
+                //}
+
+                //using (ZipArchive zipArchive = ZipFile.Open(Path.Combine(invertedIndexPath, $"{termId}.zip"), ZipArchiveMode.Update))
+                //{
+                //    var entry = zipArchive.GetEntry($"{termId}.txt");
+                //    if (entry == null) return string.Empty;
+                //    using (StreamReader reader = new StreamReader(entry.Open()))
+                //    {
+                //        return reader.ReadToEnd();
+                //    }
+                //}
+
+                //string entryPath = Path.Combine(invertedIndexPath, termId.ToString() + ".txt");
+                //if (File.Exists(entryPath))
+                //{
+                //    return File.ReadAllText(entryPath);
+                //}
+                //return string.Empty;
+            }
     }
 }

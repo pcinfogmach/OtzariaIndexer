@@ -9,17 +9,17 @@ namespace OtzriaIndexerTextFilesOnly
     public class SizeLimitedStringBuilder
     {
         public StringBuilder StringBuilder;
-        bool stringBuilderBusy = false;
-        private readonly int _maxSizeInBytes = 1048576 * 10;
-        private readonly string _filePath;
-        private int _currentSizeInBytes;
-        int Id;
+        public bool stringBuilderBusy = false;
+        //private readonly int _maxSizeInBytes = 1048576 * 10;
+        //private int _currentSizeInBytes;
+        public string _filePath;
+        public int Id;
 
         public SizeLimitedStringBuilder(int id)
         {
             Id = id;
-            _currentSizeInBytes = 0;
-            _filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Index", "InvertedIndex", id + ".zip");
+            //_currentSizeInBytes = 0;
+            _filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Index", "InvertedIndex", id.ToString());
         }
 
         public void Append(string text)
@@ -40,16 +40,16 @@ namespace OtzriaIndexerTextFilesOnly
             stringBuilderBusy = false;
         }
 
-        private void CheckSizeAndFlush()
-        {
-            if (_currentSizeInBytes >= _maxSizeInBytes)
-            {
-                Flush();
-                if (MemoryManager.MemoryExceedsLimit()) { MemoryManager.CleanAsync(); }
-            }
-        }
+        //private void CheckSizeAndFlush()
+        //{
+        //    if (_currentSizeInBytes >= _maxSizeInBytes)
+        //    {
+        //        Flush();
+        //        if (MemoryManager.MemoryExceedsLimit()) { MemoryManager.CleanAsync(); }
+        //    }
+        //}
 
-        public void Flush()
+        public void Flush(RocksDbManager db)
         {
             if (StringBuilder == null || StringBuilder.Length == 0)
                 return;
@@ -60,39 +60,41 @@ namespace OtzriaIndexerTextFilesOnly
             string text = StringBuilder.ToString();
             StringBuilder.Clear();
             StringBuilder = null;
-            _currentSizeInBytes = 0;
+            //_currentSizeInBytes = 0;
+
+            stringBuilderBusy = false;
 
             try
             {
-                using (ZipArchive zipArchive = ZipFile.Open(_filePath, ZipArchiveMode.Update))
-                {
-                    var entry = zipArchive.GetEntry($"{Id}.txt") ?? zipArchive.CreateEntry($"{Id}.txt");
+                 db.AppendEntry(Id, text);
+                
 
-                    using (Stream stream = entry.Open())
-                    {
-                        // Seek to the end of the stream if you want to append
-                        stream.Seek(0, SeekOrigin.End);
+                //using (FileStream fileStream = new FileStream(_filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
+                //{
+                //    // Seek to the end of the file if you want to append
+                //    fileStream.Seek(0, SeekOrigin.End);
 
-                        using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, bufferSize: 1024, leaveOpen: true))
-                        {
-                            writer.Write(text);
-                            writer.Flush();
-                        }
-                    }
-                }
+                //    using (DeflateStream deflateStream = new DeflateStream(fileStream, CompressionMode.Compress, leaveOpen: true))
+                //    {
+                //        using (StreamWriter writer = new StreamWriter(deflateStream, Encoding.UTF8, bufferSize: 1024, leaveOpen: true))
+                //        {
+                //            writer.Write(text);
+                //            writer.Flush();
+                //        }
+                //    }
+                //}
             }
             catch (OutOfMemoryException)
             {
-                Task.Delay(1000);
-                Flush();
+                Task.Delay(1000).Wait();
+                Flush(db);
             }
             catch (IOException ex) when (ex.Message.Contains("because it is being used by another process"))
             {
-                Task.Delay(1000);
-                Flush();
+                Task.Delay(1000).Wait();
+                Flush(db);
             }
-
-            stringBuilderBusy = false;
         }
+
     }
 }

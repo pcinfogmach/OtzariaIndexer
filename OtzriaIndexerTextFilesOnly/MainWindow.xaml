@@ -19,7 +19,7 @@
                 <ColumnDefinition Width="auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBox x:Name="SearchBox" Text="שמאי"/>
+            <TextBox x:Name="SearchBox" Text="כי"/>
 
             <StackPanel Orientation="Horizontal"  Grid.Column="1">
                 <Button Content="Search"  Click="SearchButton_Click"
