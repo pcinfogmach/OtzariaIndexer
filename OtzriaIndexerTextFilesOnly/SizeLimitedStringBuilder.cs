@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.IO.Compression;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -66,8 +65,7 @@ namespace OtzriaIndexerTextFilesOnly
 
             try
             {
-                 db.AppendEntry(Id, text);
-                
+                db.AppendEntry(Id, text);
 
                 //using (FileStream fileStream = new FileStream(_filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None))
                 //{

@@ -78,14 +78,14 @@ namespace OtzriaIndexerTextFilesOnly
         {
             int documentCount = documentFilePaths.Count();
             using (var manager = new RocksDbManager(invertedIndexPath))
-            using (var memoryCleanerTimer = new Timer(state =>
-            {
-                MemoryManager.CleanAsync();
-                //if (MemoryManager.MemoryExceedsLimit())
-                //{
-                //    FlushIndex(manager);
-                //}
-            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5)))
+            //using (var memoryCleanerTimer = new Timer(state =>
+            //{
+            //    MemoryManager.CleanAsync();
+            //    //if (MemoryManager.MemoryExceedsLimit())
+            //    //{
+            //    //    FlushIndex(manager);
+            //    //}
+            //}, null, TimeSpan.Zero, TimeSpan.FromSeconds(5)))
             {
 
                 for (int i = 0; i < documentFilePaths.Count(); i++)
