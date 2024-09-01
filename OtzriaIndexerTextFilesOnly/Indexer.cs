@@ -69,7 +69,9 @@ namespace OtzriaIndexerTextFilesOnly
     {
         bool isFlushingInProgress = false;
         bool isMemoryExceedsLimits = false;
-        private readonly int _maxSizeInBytes = 1024 * 1024 * 512;
+
+        private readonly long _maxSizeInBytesHalfGB = 1024L * 1024 * 512;
+        private readonly long _maxSizeInBytesFullGB = 1024L * 1024 * 1024;
 
         int currentSizeInBytes = 0;
         public void IndexDocuments(string[] documentFilePaths)
@@ -112,6 +114,12 @@ namespace OtzriaIndexerTextFilesOnly
         {
             if (!filePath.ToLower().EndsWith(".txt")) return;
 
+            if (currentSizeInBytes > _maxSizeInBytesHalfGB)
+            {
+                FlushIndex(manager);
+                currentSizeInBytes = 0;
+            }
+
             Console.WriteLine($"Reading Text...");
             string text = File.ReadAllText(filePath);
 
@@ -138,7 +146,7 @@ namespace OtzriaIndexerTextFilesOnly
                 {
                     while (isFlushingInProgress) Task.Delay(100).Wait();
                     
-                    if (currentSizeInBytes > _maxSizeInBytes) 
+                    if (currentSizeInBytes > _maxSizeInBytesFullGB) 
                     {
                         FlushIndex(manager);
                         currentSizeInBytes = 0;
