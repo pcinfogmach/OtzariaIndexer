@@ -35,23 +35,30 @@ namespace OtzriaIndexerTextFilesOnly
                 .SelectMany(token => token)
                 .GroupBy(token => token.DocumentPath);
 
-            foreach (var group in groupedByDocument)
+            int maxProgress = groupedByDocument.Count();
+            int progressCount = 1;
+            using (var progress = new ConsoleProgressBar())
             {
-                var documentPath = group.Key;
-                List<List<Token>> tokenLists = group.GroupBy(t => t.Text).Select(g => g.ToList()).ToList();
-                if (tokenLists.Count < terms.Length) continue;
-
-                var validResults = ProximityChecker.GetAllValidConsecutiveResults(tokenLists, 2);
-                if (validResults.Count == 0) continue;
-
-                //string documentText = RetrieveDocumentText(documentId);
-                string documentText = File.ReadAllText(documentPath);
-                for (int i = 0; i < validResults.Count; i++)
+                foreach (var group in groupedByDocument)
                 {
-                    results.Add(new KeyValuePair<string, string>(documentPath, SnippetGenerator.CreateSnippet(documentText, validResults[i])));
+                    var documentPath = group.Key;
+                    List<List<Token>> tokenLists = group.GroupBy(t => t.Text).Select(g => g.ToList()).ToList();
+                    if (tokenLists.Count < terms.Length) continue;
+
+                    var validResults = ProximityChecker.GetAllValidConsecutiveResults(tokenLists, 2);
+                    if (validResults.Count == 0) continue;
+
+                    //string documentText = RetrieveDocumentText(documentId);
+                    string documentText = File.ReadAllText(documentPath);
+                    for (int i = 0; i < validResults.Count; i++)
+                    {
+                        results.Add(new KeyValuePair<string, string>(documentPath, SnippetGenerator.CreateSnippet(documentText, validResults[i])));
+                    }
+
+                    progress.Report((double)progressCount++ / maxProgress);
                 }
+                return results;
             }
-            return results;
         }
 
         List<Token> GetSerializedResults(int termId)

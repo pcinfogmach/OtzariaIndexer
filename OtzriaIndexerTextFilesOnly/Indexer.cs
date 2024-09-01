@@ -69,18 +69,23 @@ namespace OtzriaIndexerTextFilesOnly
     {
         bool isFlushingInProgress = false;
         bool isMemoryExceedsLimits = false;
+        private readonly int _maxSizeInBytes = 1024 * 1024 * 512;
+
+        int currentSizeInBytes = 0;
         public void IndexDocuments(string[] documentFilePaths)
         {
             int documentCount = documentFilePaths.Count();
             using (var manager = new RocksDbManager(invertedIndexPath))
-            //using (var memoryCleanerTimer = new Timer(state =>
-            //{
-            //    isMemoryExceedsLimits = MemoryManager.MemoryExceedsLimit();
-            //    if (isMemoryExceedsLimits)
-            //        FlushIndex();
-            //}, null, TimeSpan.Zero, TimeSpan.FromSeconds(3)))
+            using (var memoryCleanerTimer = new Timer(state =>
             {
-                
+                MemoryManager.CleanAsync();
+                //if (MemoryManager.MemoryExceedsLimit())
+                //{
+                //    FlushIndex(manager);
+                //}
+            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(5)))
+            {
+
                 for (int i = 0; i < documentFilePaths.Count(); i++)
                 {
                     while (isMemoryExceedsLimits) Task.Delay(100).Wait();
@@ -97,11 +102,10 @@ namespace OtzriaIndexerTextFilesOnly
                     }
 
                 }
-            }
-
-            SaveTermsToJson();
-            //FlushIndex();
-            Console.WriteLine("Indexing Complete!");
+                SaveTermsToJson();
+                FlushIndex(manager);
+                Console.WriteLine("Indexing Complete!");
+            }     
         }
 
         void IndexDocument(string filePath, RocksDbManager manager)
@@ -114,11 +118,11 @@ namespace OtzriaIndexerTextFilesOnly
             Console.WriteLine($"Tokenizing...");
             var tokens = Tokenizer_2.Tokenize(text, filePath);
 
-            StoreTokensInDataBase(tokens, manager);
-            //StoreTokens(tokens);
+            //StoreTokensInDataBase(tokens, manager);
+            StoreTokens(tokens, manager);
         }
 
-        public void StoreTokens(List<Token> tokens)
+        public void StoreTokens(List<Token> tokens, RocksDbManager manager)
         {
             Console.WriteLine($"Sorting Tokens...");
             var tokenGroups = tokens.GroupBy(t => t.Text);
@@ -132,20 +136,33 @@ namespace OtzriaIndexerTextFilesOnly
                 ParallelOptions maxDegreeOfParallelism = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
                 Parallel.ForEach(tokenGroups, maxDegreeOfParallelism, group =>
                 {
-                    while (isMemoryExceedsLimits) Task.Delay(100).Wait();
-                    progress.Report((double)progressCount++ / maxProgress);
+                    while (isFlushingInProgress) Task.Delay(100).Wait();
+                    
+                    if (currentSizeInBytes > _maxSizeInBytes) 
+                    {
+                        FlushIndex(manager);
+                        currentSizeInBytes = 0;
+                    }                 
+                    
                     termToIndexMap.TryAdd(group.Key, new TermToIndexEntry(++termCount));
+                    
                     if (group.Count() > 1)
                     {
                         foreach (var token in group)
                         {
-                            termToIndexMap[group.Key].stringBuilder.Append(JsonSerializer.Serialize(group.First()) + "|");
+                            string jsonText = JsonSerializer.Serialize(token) + "|";
+                            currentSizeInBytes += Encoding.UTF8.GetByteCount(jsonText); 
+                            termToIndexMap[group.Key].stringBuilder.Append(jsonText);
                         }
                     }
                     else
                     {
-                        termToIndexMap[group.Key].stringBuilder.Append(JsonSerializer.Serialize(group.First()) + "|");
+                        string jsonText = JsonSerializer.Serialize(group.First()) + "|";
+                        currentSizeInBytes += Encoding.UTF8.GetByteCount(jsonText);
+                        termToIndexMap[group.Key].stringBuilder.Append(jsonText);
                     }
+
+                    progress.Report((double)progressCount++ / maxProgress);
                 });
             }
         }
@@ -183,27 +200,25 @@ namespace OtzriaIndexerTextFilesOnly
             }
         }
 
-        public void FlushIndex()
+        public void FlushIndex(RocksDbManager manager)
         {           
             if (isFlushingInProgress) return;
             isFlushingInProgress = true;
-            using (var manager = new RocksDbManager(invertedIndexPath))
-            using (var memoryCleanerTimer = new Timer(state =>
+            using (var progress = new ConsoleProgressBar())
+            //using (var memoryCleanerTimer = new Timer(state =>
+            //{
+            //    MemoryManager.CleanAsync();
+            //}, null, TimeSpan.Zero, TimeSpan.FromSeconds(20)))
             {
-                MemoryManager.CleanAsync();
-            }, null, TimeSpan.Zero, TimeSpan.FromSeconds(3)))
-            {
-                Console.WriteLine("Flushing inverted index, indexing will be slow while flushing...");
+                Console.WriteLine("Flushing inverted index...");
 
-                //ParallelOptions maxDegreeOfParallelism = new ParallelOptions() { MaxDegreeOfParallelism = 2 };
-                //Parallel.ForEach(termToIndexMap, maxDegreeOfParallelism, entry =>
-                //{
-                //     entry.Value.stringBuilder.Flush(manager);
-                //});
+                int progressCount = 1;
+                int maxProgress = termToIndexMap.Count();
 
                 foreach (var entry in termToIndexMap)
                 {
                     entry.Value.stringBuilder.Flush(manager);
+                    progress.Report((double)progressCount++ / maxProgress);
                 }
 
                 SaveTermsToJson();

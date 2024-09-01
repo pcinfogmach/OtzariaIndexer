@@ -10,7 +10,7 @@ namespace OtzariaIndexer
     {
         public static List<List<Token>> GetAllValidConsecutiveResults(List<List<Token>> tokenLists, int maxSlop)
         {
-            Console.WriteLine("Finding all valid consecutive term sequences within the allowed slop...");
+            //Console.WriteLine("Finding all valid consecutive term sequences within the allowed slop...");
 
             List<List<Token>> validResults = new List<List<Token>>();
 
@@ -45,7 +45,7 @@ namespace OtzariaIndexer
                 }
             }
 
-            Console.WriteLine($"Found {validResults.Count} valid sequences.");
+            //Console.WriteLine($"Found {validResults.Count} valid sequences.");
 
             return validResults;
         }
